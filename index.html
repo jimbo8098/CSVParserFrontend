@@ -1,0 +1,286 @@
+<html>
+	<head>
+		<style>
+			.input
+			{
+				float: left;
+				width: 50%;
+			}
+			
+			.status
+			{
+				float:right;
+				width: 30%;
+			}
+			
+			.cell
+			{
+				border-top: 1px solid green;
+				border-bottom: 1px solid green;
+				width: 30%;
+				padding: 10px;
+			}
+			
+			#sqlOut
+			{
+				width: 100%;
+				height: 30%;
+			}
+			
+			select
+			{
+				width: 100%;
+			}
+		</style>
+		<script type="text/javascript" src="PapaParse-4.1.2/papaparse.js"></script> <!-- For parsing CSVs -->
+		<script type="text/javascript" src="classes.js"></script>
+		<script type="text/javascript">
+			
+			var csv = null;
+			var table;
+			var ParseSettings = 
+			{
+				HeadingRow: null,
+				DataStartRow: null,
+				Columns: [],
+				CSVHandler: null
+			};
+		
+			
+			function OnLoad()
+			{
+				var filedrag = document.getElementById("filedrag");
+				
+				var xhr = new XMLHttpRequest();
+				if(xhr.upload)
+				{
+					//Making sure XMLHttpRequest exists
+					filedrag.addEventListener("dragover",FileDragHover,false);
+					filedrag.addEventListener("dragleave",FileDragHover,false);
+					filedrag.addEventListener("drop",FileSelectHandler,false);
+				}
+			}
+			
+			function FileDragHover(e)
+			{
+				e.stopPropagation();
+				e.preventDefault();
+			}
+			
+			function FileSelectHandler(e)
+			{
+				e.stopPropagation();
+				e.preventDefault()
+				var files = e.target.files || e.dataTransfer.files;
+				ParseFile(files[0]);
+			}
+			
+			function addStatus(message)
+			{
+				document.getElementById("status").value += "\r\n" + message;
+			}
+			
+			function ParseFile(file)
+			{
+				;
+				var reader = new FileReader();
+				reader.onload = function(event)
+				{
+					csv = Papa.parse(event.target.result);
+					addStatus("Parsed CSV...");
+					ParseSettings.CSVHandler = new CSVHandler(csv.data);
+					ParseSettings.Columns = ParseSettings.CSVHandler.GetColumns();
+					addStatus("");
+					for(var i = 0; i < ParseSettings.Columns.length; i++)
+					{
+						addStatus("Detected column: " + ParseSettings.Columns[i]);
+					}
+					addStatus("");
+					makeTable();
+				}
+				reader.readAsText(file);
+				
+			}
+			
+			function SetHeadingRow(row)
+			{
+				ParseSettings.CSVHandler.SetHeadingRow(row - 1);
+			}
+			
+			function SetDataStartRow(row)
+			{
+				ParseSettings.CSVHandler.SetDataStartRow(row);
+			}
+			
+			function makeTable()
+			{
+				table = new MatchTable("colAssign");
+				table.OptionsUpdated = GenerateSQL; // Add callback
+				table.MakeOptions(ParseSettings.CSVHandler.Data[1]);
+				table.GenerateTable();
+				table.AddDefaultsAndCallbacks();
+			}
+			
+			function GenerateSQL()
+			{
+				//Run when the fields are updated
+				var MatchColumns = table.Data;
+				SetDataStartRow(document.getElementById("dStartRow").value);
+				var output = "";
+				for(var i = ParseSettings.CSVHandler.DataStartRow; i < ParseSettings.CSVHandler.Data.length; i++)
+				{
+					//Foreach the rows
+					
+					output += "(";
+					
+					var CSVRow = ParseSettings.CSVHandler.Data[i];
+					var CSVCols = Object.getOwnPropertyNames(CSVRow);
+					var RowOutput = "";
+					for(var j = 0; j < CSVCols.length; j++)
+					{
+						//foreach column
+						var MatchSetting = MatchColumns[j].Row;
+						
+						switch(MatchSetting.SelectedType())
+						{
+							case "string":
+								if(CSVRow[MatchSetting.RowName] != null)
+								{
+									if(CSVRow[MatchSetting.RowName].includes("'"))
+									{
+										var cellData = CSVRow[MatchSetting.RowName].replace(/\'/gi,"''"); //Escape any apostrophes
+										if(cellData == "")
+										{
+											output += "''";
+										}
+										else
+										{
+											output += "'" + cellData  + "'";
+										}
+									}
+									else
+									{
+										output += "'" + CSVRow[MatchSetting.RowName] + "'";
+									}
+								}
+								else
+								{
+									addStatus("Undefined column found. Column is [" + MatchSetting.RowName + "] at row index [ " + ((ParseSettings.DataStartRow + 1) + (i + 1)) + "]");
+									console.log("Undefined column found. Column is [" + MatchSetting.RowName + "] at row index [ " + ((ParseSettings.DataStartRow + 1) + (i + 1)) + "] = [ " + (ParseSettings.DataStartRow + 1) + " ](DataStartRow) + [ " + i + " ](row array ID) + 1 (zero-based) . Row data follows:");
+									console.log(CSVRow);
+									output += "' '";
+								}
+								
+								break;
+							
+							case "int":
+								output += CSVRow[MatchSetting.RowName];
+								break
+								
+							case "nodisplay":
+								//ignore the column
+								break;
+							
+							default:
+								console.log("Incorrect match type: " + MatchSetting.SelectedType());
+								break;
+						}
+						if(j != (CSVCols.length - 1))
+						{
+							if(MatchSetting.SelectedType() != "nodisplay") //Don't want to add a comma after nodisplay otherwise it won't parse in SQL
+							{
+								output += ",";
+							}
+						}
+						else
+						{
+							if((i + 1) != ParseSettings.CSVHandler.Data.length)
+							{
+								output += "),";
+							}
+							else
+							{
+								output += ")";
+							}
+						}
+					}
+				}
+				
+				document.getElementById("sqlOut").value = output;
+				
+				/*
+				var data = ParseSettings.CSVHandler.Data;
+				var output = "";
+				for(var i = 0; i < data.length; i++)
+				{
+					var record = data[i];
+					output += "("
+					for(var j = 0; j < record.length; j++)
+					{
+						output += "'" + record[j] + "'"
+						if ( j != (record.length - 1))
+						{
+							output += ",";
+						}
+						else
+						{
+							output += ")";
+							if(i != (data.legnth - 1))
+							{
+								output += ",\r\n"
+							}
+							else
+							{
+								output += "\r\n;";
+							}
+						}
+					}
+				}
+				document.getElementById("sqlOut").value = output;
+				*/
+			}
+			
+		</script>
+	</head>
+	<body onload="OnLoad();">
+		<title>SSO User Generation</title>
+		<div class="input">
+			<table>
+				<tr>
+					<td> 
+						<div style="padding: 20px; border: 1px solid blue;" id="filedrag">
+							Click and drag a CSV to this box
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<div id="colAssign_Div"></div>
+					</td>
+				</tr>
+				<tr>
+					<table>
+						<tr>
+							<td>
+								Data Start Row
+							</td>
+							<td>
+								<input id="dStartRow" type="number" value="1"></input>
+							</td>
+						</tr>
+					</table>
+				</tr>
+				<tr>
+					<td>
+						<input type="button" onclick="GenerateSQL();" value="Do The Thing!"/>
+					</td>
+				</tr>
+			</table>
+			
+			<textarea id="sqlOut"></textarea>
+		</div>
+		<div class="status">
+			<textarea style="height: 40%; width: 100%;" id="status"></textarea>
+		</div>
+	</body>
+</html>
