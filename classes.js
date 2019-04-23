@@ -247,7 +247,7 @@ function CSVHandler(csvdata)
 	{
 		thisHandler.DataStartRow = row;
 		thisHandler.Data = []; //need to blank it before we proceed
-		for(var i = row; i < (thisHandler.CSV.length - row); i++)
+		for(var i = row; i < thisHandler.CSV.length; i++)
 		{
 			thisRowData = {};
 			for(var j = 0; j < thisHandler.Columns.length; j++)
@@ -273,6 +273,6 @@ function CSVHandler(csvdata)
 	}
 	
 	thisHandler.SetHeadingRow(0);
-	thisHandler.SetDataStartRow(1);
+	thisHandler.SetDataStartRow(0);
 	
 }

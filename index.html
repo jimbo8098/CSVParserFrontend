@@ -82,7 +82,6 @@
 			
 			function ParseFile(file)
 			{
-				;
 				var reader = new FileReader();
 				reader.onload = function(event)
 				{
@@ -127,7 +126,7 @@
 				var MatchColumns = table.Data;
 				SetDataStartRow(document.getElementById("dStartRow").value);
 				var output = "";
-				for(var i = ParseSettings.CSVHandler.DataStartRow; i < ParseSettings.CSVHandler.Data.length; i++)
+				for(var i = 0; i < ParseSettings.CSVHandler.Data.length; i++)
 				{
 					//Foreach the rows
 					
@@ -189,7 +188,18 @@
 						{
 							if(MatchSetting.SelectedType() != "nodisplay") //Don't want to add a comma after nodisplay otherwise it won't parse in SQL
 							{
-								output += ",";
+								var tailsVisibleColumn = false;
+								for(var k = (j + 1); k < (CSVCols.length - 1) && tailsVisibleColumn == false; k++)
+								{
+									if(MatchColumns[k].Row.SelectedType() != "nodisplay") //Don't add a comma if it's the last visible column
+									{
+										tailsVisibleColumn = true;
+									}
+								}
+								if(tailsVisibleColumn)
+								{
+									output += ",";
+								}
 							}
 						}
 						else
