@@ -189,7 +189,7 @@
 							if(MatchSetting.SelectedType() != "nodisplay") //Don't want to add a comma after nodisplay otherwise it won't parse in SQL
 							{
 								var tailsVisibleColumn = false;
-								for(var k = (j + 1); k < (CSVCols.length - 1) && tailsVisibleColumn == false; k++)
+								for(var k = (j + 1); k < CSVCols.length && tailsVisibleColumn == false; k++)
 								{
 									if(MatchColumns[k].Row.SelectedType() != "nodisplay") //Don't add a comma if it's the last visible column
 									{
